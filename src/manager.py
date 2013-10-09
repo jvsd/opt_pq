@@ -38,22 +38,15 @@ class Manager:
         ''' when self.state is set it will set state ''' 
         if next_state != self.state:
             for key in next_state:
-                if self.queues.has_key(key) is not True:
-                    queues_list = self.queues.items()
-                    queues_list.append((key,Queue(key)))
-                    self.queues = dict(queues_list)
-                    state_list = self.state.items()
-                    state_list.append((key,0))
-                    self.state = dict(state_list)
-                    workers_list = self.workers.items()
-                    workers_list.append((key,[]))
-                    self.workers = dict(workers_list)
-                            
-                temp = 1
+                if key not in self.queues:
+                    self.queues[key] = Queue(key)
+                    self.state[key] = 0
+                    self.workers[key] = []
                 changed = int(self.state[key])-int(next_state[key])
                 if changed < 0:
                     for i in range(-changed):
-                        worker_name = key + str(int(len(self.workers[key]))+1)
+                        #Needed depending on process or thread
+                        #worker_name = key + str(int(len(self.workers[key]))+1)
                         self.workers[key].append(Process(target=Worker,args = (self.queues[key],None,500,self.redis,None,420)))
                         temp_length = len(self.workers[key])
                         self.workers[key][temp_length-1].start()
@@ -67,10 +60,12 @@ class Manager:
     def recv_state(self):
         msg = self.opt_recv.recv()
         lmsg = msg.split(',')
-        temp_list = []
+        state = {}
         for i in range(int((len(lmsg)-1)/2.)):
-            temp_list.append((lmsg[2*i+1],int(float(lmsg[2*i+2]))))
-        return dict(temp_list)
+            #temp_list.append((lmsg[2*i+1],int(float(lmsg[2*i+2]))))
+            key, value = lmsg[2*i+1], int(float(lmsg[2*i+2]))
+            state[key] = value
+        return state
 
 
 
