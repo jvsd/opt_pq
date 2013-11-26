@@ -16,9 +16,9 @@ class Manager:
         self.opt_recv = self.zmq_cont.socket(zmq.SUB)
         self.opt_recv.setsockopt(zmq.SUBSCRIBE,'')
         self.opt_recv.connect('tcp://' + ip + ':' + str(port))
-        self.opt_send = self.zmq_cont.socket(zmq.PUB)
+        self.opt_send = self.zmq_cont.socket(zmq.REQ)
         #fix for dist network
-        self.opt_send.bind('tcp://*:'+str(port+1))
+        self.opt_send.connect('tcp://'+ip+':'+str(port+1))
         self.machine_name = machine_name
         #manager state is a Dictionary mapping queues to number of workers.
         self.state = {}
@@ -28,11 +28,16 @@ class Manager:
         self.queues = {}
 
     def subscribe_machines(self):
-        msg = self.opt_recv.recv()
-        print 'Received:' + msg
         self.opt_send.send(self.machine_name)
-        time.sleep(1)
-        self.opt_recv.setsockopt(zmq.SUBSCRIBE,self.machine_name)
+        poller = zmq.Poller()
+        poller.register(self.opt_send,zmq.POLLIN)
+        socks = dict(poller.poll(2000))
+        if self.opt_send in socks and socks[self.opt_send] == zmq.POLLIN:
+            msg = self.opt_send.recv()
+            if msg == 'ack':
+                self.opt_recv.setsockopt(zmq.SUBSCRIBE,self.machine_name)
+                return True
+                      
 
     def set_state(self,next_state):
         ''' when self.state is set it will set state ''' 
